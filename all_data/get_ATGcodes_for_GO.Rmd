@@ -9,15 +9,16 @@ library(ggstance)
 ```
 
 ```{r}
-#calling this comp2 cause that's what it's called in add_ATG#_to_comapre_output.rmd, and at some point I might wanna combine these into 1 big function
-comp2 <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K20d-K20w_937events/K20d-K20w_compare_ouput_complete.tab", delim = "\t")
+#calling this comp2 cause that's what it's called in add_ATG#_to_compare_output.rmd, and at some point I might wanna combine these into 1 big function
+comp2 <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/K40d-L40d_compare_ouput_complete.tab", delim = "\t")
 ```
 
 average the replicates
 ```{r}
-comp3 <- comp2 %>% mutate(drought_avg = rowMeans(select(comp2, c(D6K20d2_191011_NextSeq, D6K20d3_191011_NextSeq, D7K20d2_191011_NextSeq, D7K20d5_191011_NextSeq))), watered_avg = rowMeans(select(comp2, c(D6K20W1_191011_NextSeq, D7K20W1_191011_NextSeq, D7K20W2_191011_NextSeq))))
+#change these every time
+#you'll get an error if you try to call a column that doesn't exist
+comp3 <- comp2 %>% mutate(GC_avg = rowMeans(select(comp2, c(D7K40d1_191011_NextSeq, D7K40d2_191011_NextSeq))), leaf_avg = rowMeans(select(comp2, c(D6L40d1_190903_NextSeq_R1, D6L40d2_190903_NextSeq_R1, D6L40d3_190919_NextSeq))))
 ```
-
 
 percent AS calculation varies by type (ie. percent sequence inclusion has a different meaning in each event type)
 EX: PSI (percent spliced in): AS = 1 - PSI (PSI is percent of the time AS doesn't happen)
@@ -26,31 +27,26 @@ ALTA/D: PSU (percent splice site usage): AS = PSU (PSU is percent if time AS hap
 
 add a column for percent AS based on event type (EVENT.y) and calculated AS difference between drought and watered
 ```{r}
-comp4 <- comp3 %>% mutate(AS_drought = ifelse(EVENT.y == "EX", 100 - drought_avg, drought_avg), AS_watered = ifelse(EVENT.y == "EX", 100 - watered_avg, watered_avg), AS_diff = AS_drought - AS_watered, more_AS = ifelse(AS_diff > 0, "droughted", "watered"))
+comp4 <- comp3 %>% mutate(AS_GC = ifelse(EVENT.y == "EX", 100 - GC_avg, GC_avg), AS_leaf = ifelse(EVENT.y == "EX", 100 - leaf_avg, leaf_avg), AS_diff = AS_GC - AS_leaf, more_AS = ifelse(AS_diff > 0, "GC", "leaf"))
 ```
 
 write out the lists of ATG codes
 ```{r}
-ATG_drought <- comp4 %>% filter(more_AS == "droughted") %>% 
+ATG_GC <- comp4 %>% filter(more_AS == "GC") %>% 
   select(GeneID)
-write.table(ATG_drought, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K20d-K20w_937events/droughted_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
-ATG_watered <- comp4 %>% filter(more_AS == "watered") %>% 
+write.table(ATG_GC, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/GC_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+ATG_leaf <- comp4 %>% filter(more_AS == "leaf") %>% 
   select(GeneID)
-write.table(ATG_watered, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K20d-K20w_937events/watered_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+write.table(ATG_leaf, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/leaf_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
 ```
-
-make df of GO terms and AGI codes
-make df of AGI codes and As event type
-right join these
-group_by, summarize, n(), ggplot
 
 once we output the ATG codes for GO, we run them through AgriGo, using the vast-tools generated backgroup (multi-exon genes with similar read coverage, to avoid enrichment of highly-expressed genes)
 
 ```{r}
-GO_output <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K20d-K20w_937events/droughted_up_GO.txt", delim = "\t")
+GO_output <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/leaf_up_GO.txt", delim = "\t")
 
 #filter out non-significant GO terms
-GO_output <- GO_output %>% filter(FDR < 0.05) %>% select(c("Term", "term_type", "entries"))
+GO_output <- GO_output %>% filter(FDR <= 0.05) %>% select(c("Term", "term_type", "entries"))
 
 #goal is to get a list of GO terms and their AGI codes
 wide <- cSplit(GO_output, "entries", "//" )
@@ -59,10 +55,10 @@ wide <- cSplit(GO_output, "entries", "//" )
 find_all_na <- function(x) any(!is.na(x))
 wide <- wide %>% select(where(find_all_na))
 #also the first column has a / at the beginning
-wide$entries_0002 <- str_remove(wide$entries_0002, "/")
+wide$entries_002 <- str_remove(wide$entries_002, "/")
 
 #okkk looks good. now pivot longer to get one row per GO-AGI pair
-long <- wide %>% pivot_longer(entries_0002:entries_1048, names_to = "waste_of_space", values_to = "AGI_code") %>% 
+long <- wide %>% pivot_longer(entries_002:entries_100, names_to = "waste_of_space", values_to = "AGI_code") %>% 
   select(-waste_of_space) %>% 
   na.omit(AGI_code)
 ```
@@ -70,7 +66,7 @@ ok, so that side's sorted out
 
 now, onto making a list of AGI-AS pairs
 ```{r}
-AGI_AS <- comp4 %>% filter(more_AS == "droughted") %>% 
+AGI_AS <- comp4 %>% filter(more_AS == "leaf") %>% 
   select(c(GeneID, Event_type))
 colnames(AGI_AS) <- c("AGI_code", "Event_type")
 ```
@@ -85,29 +81,62 @@ to_plot <- full %>% group_by(Term, Event_type, term_type) %>%
   summarize(Number_of_Events = n())
 ```
 plotsssss :)
+
 ```{r}
-all <- ggplot(to_plot, aes(x = Number_of_Events, y = reorder(Term, -Number_of_Events), fill = Event_type))+
-  geom_barh(position = "stack", stat = "identity")+
-  theme_minimal()+
-  labs(x = "Number of Events",
-       y = "GO term")
-all
+order_stuff <- to_plot %>% group_by(Term) %>% summarize (sum = sum(Number_of_Events)) 
+to_plot <- merge(to_plot, order_stuff, by = "Term", all.x = T)
+```
 
-processes <- to_plot %>% filter(term_type == "P") %>% 
-  ggplot(aes(x = Number_of_Events, y = reorder(Term, -Number_of_Events), fill = Event_type))+
-  geom_barh(position = "stack", stat = "identity")+
-  theme_minimal()+
-  labs(x = "Number of Events",
-       y = "GO term")
-processes
 
-components <- to_plot %>% filter(term_type == "C") %>% 
-  ggplot(aes(x = Number_of_Events, y = reorder(Term, -Number_of_Events), fill = Event_type))+
+
+```{r}
+#all GO terms
+tiff("test.tiff", units="in", width=10, height=15, res=300)
+ggplot(to_plot, aes(x = Number_of_Events, y = reorder(Term, -sum), fill = Event_type))+
+  geom_barh(position = "stack", stat = "identity")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  scale_fill_manual(values = c("#00BFC4", "#7CAE00", "#F8766D"))
+dev.off()
+```
+
+```{r}
+#processes
+tiff("test.tiff", units="in", width=10, height=10, res=300)
+to_plot %>% filter(term_type == "P") %>% 
+  ggplot(aes(x = Number_of_Events, y = reorder(Term, -sum), fill = Event_type))+
+  geom_barh(position = "stack", stat = "identity")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  scale_fill_manual(values = c("#00BFC4", "#7CAE00", "#F8766D"))
+dev.off()
+```
+
+```{r}
+#components
+tiff("test.tiff", units="in", width=10, height=10, res=300)
+to_plot %>% filter(term_type == "C") %>% 
+  ggplot(aes(x = Number_of_Events, y = reorder(Term, -sum), fill = Event_type))+
+  geom_barh(position = "stack", stat = "identity")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  scale_fill_manual(values = c("#00BFC4", "#7CAE00", "#F8766D"))
+dev.off()
+```
+
+```{r}
+#functions
+tiff("test.tiff", units="in", width=10, height=2, res=300)
+to_plot %>% filter(term_type == "F") %>% 
+  ggplot(aes(x = Number_of_Events, y = reorder(Term, -sum), fill = Event_type))+
   geom_barh(position = "stack", stat = "identity")+
   theme_minimal()+
   labs(x = "Number of Events",
        y = "GO term")
-components
+dev.off()
 ```
 
 
