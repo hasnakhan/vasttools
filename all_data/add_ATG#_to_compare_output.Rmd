@@ -1,0 +1,45 @@
+---
+title: "add ATG# to compare output"
+output: html_document
+---
+
+for all it's good for, the output of vast-tools compare function (and diff too) lacks the TAIR locus identifier, and instead uses gene names, which aren't available for every gene. This program is to add ATG#s to the compare output based on the vastdb template file for downstream GO enrichment analysis.
+
+A good place to start: https://stackoverflow.com/questions/37646223/add-column-to-data-frame-by-another-data-frame
+
+```{r}
+library(tidyverse)
+library(fuzzyjoin)
+```
+
+
+read in the compare output and the db template
+```{r}
+comp_out <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K60d-K60w_248events/K60d-K60w_compare_output.tab.txt", delim = "\t")
+
+db <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/vast-tools/Ath/FILES/Ath.Event-Gene.IDs.txt", delim = "\t")
+```
+
+
+Add ATG# to compare output based on coordinates using link above
+```{r}
+colnames(db) <- c("EVENT", "GeneID") #gotta get the colnames to match across DFs
+comp_out_test <- inner_join(comp_out, db, by = "EVENT")
+```
+
+
+Add another column to the compare output specifying event type.
+First, make a df mapping the vast event type to the full name (INT --> Intron retention...)
+Use this: https://stackoverflow.com/questions/54637189/merging-two-tables-where-one-column-is-substring-of-the-other-in-r to full join the tables (which I'm pretty sure is what I need...)
+
+```{r}
+event_key <- tibble(EVENT = c("EX", "INT", "ALTA", "ALTD"), Event_type = c("Exon skipping", "Intron retention", "Alternative 3' splice site", "Alternative 5' splice site"))
+
+comp2 <- fuzzy_join(comp_out_test, event_key, match_fun = str_detect, by = "EVENT", mode = "full")
+```
+
+write out the result:
+```{r}
+write.table(comp2, file = "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K60d-K60w_248events/K60d-K60w_compare_ouput_complete.tab", row.names = F, na = "", quote = F, sep = "\t")
+```
+

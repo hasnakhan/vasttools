@@ -1,0 +1,113 @@
+---
+title: "get ATG codes for GO"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(splitstackshape)
+library(ggstance)
+```
+
+```{r}
+#calling this comp2 cause that's what it's called in add_ATG#_to_comapre_output.rmd, and at some point I might wanna combine these into 1 big function
+comp2 <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K20d-K20w_937events/K20d-K20w_compare_ouput_complete.tab", delim = "\t")
+```
+
+average the replicates
+```{r}
+comp3 <- comp2 %>% mutate(drought_avg = rowMeans(select(comp2, c(D6K20d2_191011_NextSeq, D6K20d3_191011_NextSeq, D7K20d2_191011_NextSeq, D7K20d5_191011_NextSeq))), watered_avg = rowMeans(select(comp2, c(D6K20W1_191011_NextSeq, D7K20W1_191011_NextSeq, D7K20W2_191011_NextSeq))))
+```
+
+
+percent AS calculation varies by type (ie. percent sequence inclusion has a different meaning in each event type)
+EX: PSI (percent spliced in): AS = 1 - PSI (PSI is percent of the time AS doesn't happen)
+INT: PIR (percent intron retention): AS = PIR (PIR is percent of time AS happens)
+ALTA/D: PSU (percent splice site usage): AS = PSU (PSU is percent if time AS happens)
+
+add a column for percent AS based on event type (EVENT.y) and calculated AS difference between drought and watered
+```{r}
+comp4 <- comp3 %>% mutate(AS_drought = ifelse(EVENT.y == "EX", 100 - drought_avg, drought_avg), AS_watered = ifelse(EVENT.y == "EX", 100 - watered_avg, watered_avg), AS_diff = AS_drought - AS_watered, more_AS = ifelse(AS_diff > 0, "droughted", "watered"))
+```
+
+write out the lists of ATG codes
+```{r}
+ATG_drought <- comp4 %>% filter(more_AS == "droughted") %>% 
+  select(GeneID)
+write.table(ATG_drought, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K20d-K20w_937events/droughted_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+ATG_watered <- comp4 %>% filter(more_AS == "watered") %>% 
+  select(GeneID)
+write.table(ATG_watered, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K20d-K20w_937events/watered_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+```
+
+make df of GO terms and AGI codes
+make df of AGI codes and As event type
+right join these
+group_by, summarize, n(), ggplot
+
+once we output the ATG codes for GO, we run them through AgriGo, using the vast-tools generated backgroup (multi-exon genes with similar read coverage, to avoid enrichment of highly-expressed genes)
+
+```{r}
+GO_output <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI10_no_merging_all_reps/K20d-K20w_937events/droughted_up_GO.txt", delim = "\t")
+
+#filter out non-significant GO terms
+GO_output <- GO_output %>% filter(FDR < 0.05) %>% select(c("Term", "term_type", "entries"))
+
+#goal is to get a list of GO terms and their AGI codes
+wide <- cSplit(GO_output, "entries", "//" )
+#weird bug here is making every second row empty, but not gonna complain since it does everything else so well
+#identify the columns where at least 1 row is not NA
+find_all_na <- function(x) any(!is.na(x))
+wide <- wide %>% select(where(find_all_na))
+#also the first column has a / at the beginning
+wide$entries_0002 <- str_remove(wide$entries_0002, "/")
+
+#okkk looks good. now pivot longer to get one row per GO-AGI pair
+long <- wide %>% pivot_longer(entries_0002:entries_1048, names_to = "waste_of_space", values_to = "AGI_code") %>% 
+  select(-waste_of_space) %>% 
+  na.omit(AGI_code)
+```
+ok, so that side's sorted out
+
+now, onto making a list of AGI-AS pairs
+```{r}
+AGI_AS <- comp4 %>% filter(more_AS == "droughted") %>% 
+  select(c(GeneID, Event_type))
+colnames(AGI_AS) <- c("AGI_code", "Event_type")
+```
+
+now join those 2 df's
+```{r}
+full <- merge(long, AGI_AS, by = "AGI_code", all.x = T)
+#according to this, all the AS events are intron retentions, which is gonna make graphing way less fun
+#of note, this is a left join since we want all the rows from long, but not all the rows from AGI_AS
+#we do, however, get duplicate ATG#s for when a single gene has multiple AS events (which is what we want)
+to_plot <- full %>% group_by(Term, Event_type, term_type) %>% 
+  summarize(Number_of_Events = n())
+```
+plotsssss :)
+```{r}
+all <- ggplot(to_plot, aes(x = Number_of_Events, y = reorder(Term, -Number_of_Events), fill = Event_type))+
+  geom_barh(position = "stack", stat = "identity")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")
+all
+
+processes <- to_plot %>% filter(term_type == "P") %>% 
+  ggplot(aes(x = Number_of_Events, y = reorder(Term, -Number_of_Events), fill = Event_type))+
+  geom_barh(position = "stack", stat = "identity")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")
+processes
+
+components <- to_plot %>% filter(term_type == "C") %>% 
+  ggplot(aes(x = Number_of_Events, y = reorder(Term, -Number_of_Events), fill = Event_type))+
+  geom_barh(position = "stack", stat = "identity")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")
+components
+```
+
+

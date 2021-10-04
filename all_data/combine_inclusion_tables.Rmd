@@ -1,0 +1,23 @@
+---
+title: "combine inclusion tables"
+output: html_document
+---
+
+we were having a tough time getting all 42 fastq files aligned in one run, so we split them in 2 sets. This script combines the two inclusion tables since they're too big to do this easily in excel.
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+inc1 <-  read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/vast_out_scinet1/INCLUSION_LEVELS_FULL-araTha10-28.tab", delim = "\t")
+inc2 <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/vast_out_scinet2/INCLUSION_LEVELS_FULL-araTha10-14.tab", delim = "\t")
+
+inc2[, c(1:6)] <- NULL
+
+all_inc <- cbind(inc1, inc2)
+
+write.table(all_inc, file = "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/complete_inclusion_table.tab", row.names = F, na = "", quote = F, sep = "\t")
+```
+
