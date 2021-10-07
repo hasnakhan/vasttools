@@ -1,0 +1,169 @@
+---
+title: "GO_comp_plots"
+output: html_document
+---
+
+```{r}
+library(plyr)
+library(tidyverse)
+library(splitstackshape)
+library(ggtext)
+```
+
+so, we need a table of 4 columns: GO term, group (treatment/genotype), gene count and FDR. In contrast to Anna's figure, we won't have up and downregulated relative to controls, we'll have more in AS in treatment vs more AS in controls (think this through! this means that we have the same number of columns, but organized differently. Another way of thinking about our data is AS increased in treatment vs AS decreased in treatment, but effectively it's the same and it's easier to work with the data the way it is now. Can always adjust axis labels later)
+
+We'll also make 2 figures: 1 looking at the effect to treatment (up in drought vs up in watered) and one looking at the effect of genotype (up in GC or up in leaf). Important to keep in mind that these are only the genes that passed the compare filter, and so are 1. sufficiently expressed in all reps, and 2. demonstrating different alt splicing patterns in the comparison. We sorted the compare outputs by the group that the AS event was associated with, and fed those 2 lists to AgriGo separately. 
+
+I'm thinking for the time being of making a single figure for each arm, with all 3 GO categories. Can split them up later if we want, and for that reason i think it's worth keeping the term type in the df.
+
+Also, for the time being, I'm lumping all AS types together. Wouldn't really be worth plotting them separately, since almost all are IR
+
+One last (?) thing: I think the plot is more meaningful if we also show the groups with no significant GO enrichment. So first, I'll read in and combine all the data we have for the groups with enrichment, then add in all the others as empty rows so they show up on the figure (thinking of adding a GO term like "cell" or something and then just setting gene count and FDR to 0). 
+
+```{r}
+#need this function to handle cSplit output
+find_all_na <- function(x) any(!is.na(x))
+```
+
+
+1. plot by treatment
+```{r}
+#of these 12 groups, only 2 have any significant enrichment: K20d and L20d
+K20d <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d-K20w_68events/droughted_up_GO.txt", delim = "\t")
+
+#this does almost exactly what's done in get_ATGcodes_for_GO.Rmd. Notable exception would be that I leave the / at the front of the first ATG code, since the only thing I'm doing is counting
+#also it's much cleaner :)
+#I've added a column for more_AS, but haven't figured out how to use it yet... will annotate manually in ppt for now
+K20d <- K20d %>% filter(FDR <= 0.05) %>% select(c("Term", "term_type", "entries", "FDR")) %>% 
+  cSplit("entries", "//") %>% 
+  select(where(find_all_na)) %>% 
+  pivot_longer(4:ncol(.), names_to = "waste_of_space", values_to = "AGI_code") %>% 
+  select(-waste_of_space) %>% 
+  na.omit(AGI_code) %>% 
+  group_by(Term, term_type, FDR) %>% 
+  summarize ("Gene_count" = n()) %>% 
+  mutate(Group = "K20d", more_AS = "More AS in droughted")
+
+L20d <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/L20d-L20w_706events/droughted_up_GO.txt", delim = "\t")
+
+L20d <- L20d %>% filter(FDR <= 0.05) %>% select(c("Term", "term_type", "entries", "FDR")) %>% 
+  cSplit("entries", "//") %>% 
+  select(where(find_all_na)) %>% 
+  pivot_longer(4:ncol(.), names_to = "waste_of_space", values_to = "AGI_code") %>% 
+  select(-waste_of_space) %>% 
+  na.omit(AGI_code) %>% 
+  group_by(Term, term_type, FDR) %>% 
+  summarize ("Gene_count" = n()) %>% 
+  mutate(Group = "L20d", more_AS = "More AS in droughted")
+
+rest_of_data1 <- tibble(Term = rep(c("cell"), times = 2), term_type = rep(c("C"), times = 2), Gene_count = rep(c(NA), times = 2), FDR = rep(c(NA), times = 2), Group = c("L40d", "L60d"), more_AS = rep(c("More AS in droughted"), times = 2))
+
+rest_of_data2 <- tibble(Term = rep(c("cell"), times = 8), term_type = rep(c("C"), times = 8), Gene_count = rep(c(NA), times = 8), FDR = rep(c(NA), times = 8), Group = c( "K40d", "K60d", "L20w", "L40w", "L60w", "K20w", "K40w", "K60w"), more_AS = c(rep(c("More AS in droughted"), times = 2), rep(c("More AS in watered"), times = 6)))
+
+to_plot <- rbind(L20d, rest_of_data1, K20d, rest_of_data2)
+
+colour_key <- tibble(term_type = c("F", "C", "P"), colour = c("blue", "green", "red"))
+
+to_plot1 <- join(to_plot, colour_key, by = "term_type")
+
+#need this gross workaround for some reason
+thingy <-  paste("<span style = 'color: ", to_plot1$colour, ";'>", to_plot1$Term, "<span>", sep = "")
+to_plot <- cbind(to_plot1, thingy= thingy)
+
+```
+
+```{r}
+tiff("test.tiff", units="in", width=20, height=20, res=300)
+ggplot(to_plot, aes(x = fct_inorder(Group), y = thingy, colour = log10(FDR), size = Gene_count, label = Group))+
+  geom_point()+
+  scale_colour_gradient(low = "blue", high = "red")+
+  theme_bw()+
+  theme(axis.text.y = element_markdown())+
+  labs(x = "",
+    y = "GO term")
+
+dev.off()
+```
+
+2. plot by genotype
+```{r}
+#in this arm, 4 groups have some significant GO enrichment
+L20d <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d-L20d_327events/leaf_up_GO.txt", delim = "\t")
+
+L20d <- L20d %>% filter(FDR <= 0.05) %>% select(c("Term", "term_type", "entries", "FDR")) %>% 
+  cSplit("entries", "//") %>% 
+  select(where(find_all_na)) %>% 
+  pivot_longer(4:ncol(.), names_to = "waste_of_space", values_to = "AGI_code") %>% 
+  select(-waste_of_space) %>% 
+  na.omit(AGI_code) %>% 
+  group_by(Term, term_type, FDR) %>% 
+  summarize ("Gene_count" = n()) %>% 
+  mutate(Group = "L20d", more_AS = "More AS in leaf")
+
+L40d <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/leaf_up_GO.txt", delim = "\t")
+
+L40d <- L40d %>% filter(FDR <= 0.05) %>% select(c("Term", "term_type", "entries", "FDR")) %>% 
+  cSplit("entries", "//") %>% 
+  select(where(find_all_na)) %>% 
+  pivot_longer(4:ncol(.), names_to = "waste_of_space", values_to = "AGI_code") %>% 
+  select(-waste_of_space) %>% 
+  na.omit(AGI_code) %>% 
+  group_by(Term, term_type, FDR) %>% 
+  summarize ("Gene_count" = n()) %>% 
+  mutate(Group = "L40d", more_AS = "More AS in leaf")
+
+L20w <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20w-L20w_196events/leaf_up_GO.txt", delim = "\t")
+
+L20w <- L20w %>% filter(FDR <= 0.05) %>% select(c("Term", "term_type", "entries", "FDR")) %>% 
+  cSplit("entries", "//") %>% 
+  select(where(find_all_na)) %>% 
+  pivot_longer(4:ncol(.), names_to = "waste_of_space", values_to = "AGI_code") %>% 
+  select(-waste_of_space) %>% 
+  na.omit(AGI_code) %>% 
+  group_by(Term, term_type, FDR) %>% 
+  summarize ("Gene_count" = n()) %>% 
+  mutate(Group = "L20w", more_AS = "More AS in leaf")
+
+L60w <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60w-L60w_58events/leaf_up_GO.txt", delim = "\t")
+
+L60w <- L60w %>% filter(FDR <= 0.05) %>% select(c("Term", "term_type", "entries", "FDR")) %>% 
+  cSplit("entries", "//") %>% 
+  select(where(find_all_na)) %>% 
+  pivot_longer(4:ncol(.), names_to = "waste_of_space", values_to = "AGI_code") %>% 
+  select(-waste_of_space) %>% 
+  na.omit(AGI_code) %>% 
+  group_by(Term, term_type, FDR) %>% 
+  summarize ("Gene_count" = n()) %>% 
+  mutate(Group = "L60w", more_AS = "More AS in leaf")
+
+rest_of_data1 <- tibble(Term = "cell", term_type = "C", Gene_count = NA, FDR = NA, Group = "L60d", more_AS = "More AS in leaf")
+
+rest_of_data2 <- tibble(Term = "cell", term_type = "C", Gene_count = NA, FDR = NA, Group = "L40w", more_AS = "More AS in leaf")
+
+rest_of_data3 <- tibble(Term = rep(c("cell"), times = 6), term_type = rep(c("C"), times = 6), Gene_count = rep(c(NA), times = 6), FDR = rep(c(NA), times = 6), Group = c("K20d", "K40d", "K60d", "K20w", "K40w", "K60w"), more_AS = c(rep(c("More AS in GC"), times = 6)))
+
+to_plot <- rbind(L20d, L40d, rest_of_data1, L20w, rest_of_data2, L60w, rest_of_data3)
+
+colour_key <- tibble(term_type = c("F", "C", "P"), colour = c("blue", "green", "red"))
+
+to_plot1 <- join(to_plot, colour_key, by = "term_type")
+
+#need this gross workaround for some reason
+thingy <-  paste("<span style = 'color: ", to_plot1$colour, ";'>", to_plot1$Term, "<span>", sep = "")
+to_plot <- cbind(to_plot1, thingy= thingy)
+```
+
+```{r}
+tiff("test.tiff", units="in", width=20, height=20, res=300)
+ggplot(to_plot, aes(x = fct_inorder(Group), y = thingy, colour = FDR, size = Gene_count, label = Group))+
+  geom_point()+
+  scale_colour_gradient(low = "blue", high = "red")+
+  theme_bw()+
+  theme(axis.text.y = element_markdown())+
+  labs(x = "",
+    y = "GO term")
+
+dev.off()
+```
+
+

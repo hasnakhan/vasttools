@@ -1,0 +1,240 @@
+---
+title: "add_cRPKM_to_compare_output"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+read in the 2 cRPKM tables and combine them (just like we did for inclusion tables) so there's only 1 df we have to search. Also gonna write this out and keep it (it's much smaller than the inclusion tables)
+
+```{r}
+RPKM1 <-  read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/vast_out_scinet1/cRPKM-araTha10-28.tab", delim = "\t")
+RPKM2 <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/vast_out_scinet2/cRPKM-araTha10-14.tab", delim = "\t")
+
+RPKM2[, c(1:2)] <- NULL
+
+all_RPKM <- cbind(RPKM1, RPKM2)
+
+#commenting out so i don't accidentally rewrite the table every time
+#write.table(all_RPKM, file = "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/complete_cRPKM_table.tab", row.names = F, na = "", quote = F, sep = "\t")
+```
+
+maybe it's worth averaging the cRPKM of replicates beforehand: could create a new df for this, or mutate the old one, doesn't matter. Then could identify the ones we need to a given comp_out, select only those columns, and merge them to comp_out. But this seems circular, since at the end of the day, we want to know which AS genes are highly expressed across most/all groups, so why split the groups up? Seems like more work. Maybe just avg them in the cRPKM table and sort by that? But then we don't know if they're AS. That's why we need to go through each comp_out anyway...
+
+Ok, so plan is:
+1. average the cRPKMs of replicates
+2. read in each compare output
+3. merge the appropriate cRPKM averages to the compare output
+4. create a list of the top 50 expressed genes in each comparison (maybe read this out?)
+5. count how many times each gene appears across all lists
+6. rank and select genes accordingly
+
+1. average the cRPKMs of replicates
+```{r}
+#ok so there's 12 treatment groups we're interested in
+#create a df for each, including ATG#s, and a column of rowMeans to merge later
+
+K20d_rpkm <- all_RPKM %>% select(c("ID", contains("K20d")))  
+K20d_rpkm$K20davg <- rowMeans(K20d_rpkm[,2:5])  
+#for the life of me, I can't figure out why I can't pipe those lines together, so it's staying like this for now...
+
+K40d_rpkm <- all_RPKM %>% select(c("ID", contains("K40d")))
+K40d_rpkm$K40davg <- rowMeans(K40d_rpkm[,2:3])  
+
+K60d_rpkm <- all_RPKM %>% select(c("ID", contains("K60d")))
+K60d_rpkm$K60davg <- rowMeans(K60d_rpkm[,2:4])
+
+K20w_rpkm <- all_RPKM %>% select(c("ID", contains("K20W")))
+K20w_rpkm$K20wavg <- rowMeans(K20w_rpkm[,2:4])
+
+K40w_rpkm <- all_RPKM %>% select(c("ID", contains("K40W")))
+K40w_rpkm$K40wavg <- rowMeans(K40w_rpkm[,2:4])
+
+K60w_rpkm <- all_RPKM %>% select(c("ID", contains("K60W")))
+K60w_rpkm$K60wavg <- rowMeans(K60w_rpkm[,2:4])
+
+L20d_rpkm <- all_RPKM %>% select(c("ID", contains("L20d")))
+L20d_rpkm$L20davg <- rowMeans(L20d_rpkm[,2:4])
+
+L40d_rpkm <- all_RPKM %>% select(c("ID", contains("L40d")))
+L40d_rpkm$L40davg <- rowMeans(L40d_rpkm[,2:4])
+
+L60d_rpkm <- all_RPKM %>% select(c("ID", contains("L60d")))
+L60d_rpkm$L60davg <- rowMeans(L60d_rpkm[,2:4])
+
+L20w_rpkm <- all_RPKM %>% select(c("ID", contains("L20W")))
+L20w_rpkm$L20wavg <- rowMeans(L20w_rpkm[,2:4])
+
+L40w_rpkm <- all_RPKM %>% select(c("ID", contains("L40W")))
+L40w_rpkm$L40wavg <- rowMeans(L40w_rpkm[,2:4])
+
+L60w_rpkm <- all_RPKM %>% select(c("ID", contains("L60W")))
+L60w_rpkm$L60wavg <- rowMeans(L60w_rpkm[,2:4])
+```
+
+2. read in each compare output 
+and 
+3. merge the appropriate cRPKM averages to the compare output
+and 
+4. create a list of the top 50 expressed genes in each comparison (maybe read this out?)
+in cases where there's less than 50 genes, keep all
+in cases where on of the top 50 expressed genes has more than 1 AS event, only count it once. This will result in slightly less tha 50 genes sometimes, but that was an arbitrary number to begin with
+```{r}
+K20dK20w <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d-K20w_68events/K20d-K20w_compare_ouput_complete.tab", delim = "\t")
+names(K20dK20w)[names(K20dK20w) == "GeneID"] <- "ID"
+
+K20dK20w <- merge(K20dK20w, K20d_rpkm[,c("K20davg", "ID")], by = "ID", all.x = T)
+K20dK20w <- merge(K20dK20w, K20w_rpkm[,c("K20wavg", "ID")], by = "ID", all.x = T)
+K20dK20w$avg <- (K20dK20w$K20davg + K20dK20w$K20wavg)/2
+K20dK20w <- K20dK20w[order(-K20dK20w$avg),]
+K20dK20w_top50 <- unique(K20dK20w$ID[1:50])
+#write.table(K20dK20w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d-K20w_68events/K20d-K20w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+#comment out the write table lines. should also note that this list doesn't tell us which group (w vs d) had more AS, but it shouldn't matter
+```
+
+2 of 12:
+```{r}
+K20dL20d <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d-L20d_327events/K20d-L20d_compare_ouput_complete.tab", delim = "\t")
+names(K20dL20d)[names(K20dL20d) == "GeneID"] <- "ID"
+
+K20dL20d <- merge(K20dL20d, K20d_rpkm[,c("K20davg", "ID")], by = "ID", all.x = T)
+K20dL20d <- merge(K20dL20d, L20d_rpkm[,c("L20davg", "ID")], by = "ID", all.x = T)
+K20dL20d$avg <- (K20dL20d$K20davg + K20dL20d$L20davg)/2
+K20dL20d <- K20dL20d[order(-K20dL20d$avg),]
+K20dL20d_top50 <- unique(K20dL20d$ID[1:50])
+#write.table(K20dL20d_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d-L20d_327events/K20d-L20d_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+3 of 12:
+```{r}
+K20wL20w <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20w-L20w_196events/K20w-L20w_compare_ouput_complete.tab", delim = "\t")
+names(K20wL20w)[names(K20wL20w) == "GeneID"] <- "ID"
+
+K20wL20w <- merge(K20wL20w, K20w_rpkm[,c("K20wavg", "ID")], by = "ID", all.x = T)
+K20wL20w <- merge(K20wL20w, L20w_rpkm[,c("L20wavg", "ID")], by = "ID", all.x = T)
+K20wL20w$avg <- (K20wL20w$K20wavg + K20wL20w$L20wavg)/2
+K20wL20w <- K20wL20w[order(-K20wL20w$avg),]
+K20wL20w_top50 <- unique(K20wL20w$ID[1:50])
+#write.table(K20wL20w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20w-L20w_196events/K20w-L20w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+4 of 12:
+```{r}
+K40dK40w <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-K40w_23events/K40d-K40w_compare_ouput_complete.tab", delim = "\t")
+names(K40dK40w)[names(K40dK40w) == "GeneID"] <- "ID"
+
+K40dK40w <- merge(K40dK40w, K40d_rpkm[,c("K40davg", "ID")], by = "ID", all.x = T)
+K40dK40w <- merge(K40dK40w, K40w_rpkm[,c("K40wavg", "ID")], by = "ID", all.x = T)
+K40dK40w$avg <- (K40dK40w$K40davg + K40dK40w$K40wavg)/2
+K40dK40w <- K40dK40w[order(-K40dK40w$avg),]
+K40dK40w_top50 <- unique(K40dK40w$ID[1:50])
+#write.table(K40dK40w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-K40w_23events/K40d-K40w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+5 of 12:
+```{r}
+K40dL40d <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/K40d-L40d_compare_ouput_complete.tab", delim = "\t")
+names(K40dL40d)[names(K40dL40d) == "GeneID"] <- "ID"
+
+K40dL40d <- merge(K40dL40d, K40d_rpkm[,c("K40davg", "ID")], by = "ID", all.x = T)
+K40dL40d <- merge(K40dL40d, L40d_rpkm[,c("L40davg", "ID")], by = "ID", all.x = T)
+K40dL40d$avg <- (K40dL40d$K40davg + K40dL40d$L40davg)/2
+K40dL40d <- K40dL40d[order(-K40dL40d$avg),]
+K40dL40d_top50 <- unique(K40dL40d$ID[1:50])
+#write.table(K40dL40d_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/K40d-L40d_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+6 of 12:
+```{r}
+K40wL40w <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40w-L40w_69events/K40w-L40w_compare_ouput_complete.tab", delim = "\t")
+names(K40wL40w)[names(K40wL40w) == "GeneID"] <- "ID"
+
+K40wL40w <- merge(K40wL40w, K40w_rpkm[,c("K40wavg", "ID")], by = "ID", all.x = T)
+K40wL40w <- merge(K40wL40w, L40w_rpkm[,c("L40wavg", "ID")], by = "ID", all.x = T)
+K40wL40w$avg <- (K40wL40w$K40wavg + K40wL40w$L40wavg)/2
+K40wL40w <- K40wL40w[order(-K40wL40w$avg),]
+K40wL40w_top50 <- unique(K40wL40w$ID[1:50])
+#write.table(K40wL40w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40w-L40w_69events/K40w-L40w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+7 of 12:
+```{r}
+K60dK60w <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60d-K60w_6events/K60d-K60w_compare_ouput_complete.tab", delim = "\t")
+names(K60dK60w)[names(K60dK60w) == "GeneID"] <- "ID"
+
+K60dK60w <- merge(K60dK60w, K60d_rpkm[,c("K60davg", "ID")], by = "ID", all.x = T)
+K60dK60w <- merge(K60dK60w, K60w_rpkm[,c("K60wavg", "ID")], by = "ID", all.x = T)
+K60dK60w$avg <- (K60dK60w$K60davg + K60dK60w$K60wavg)/2
+K60dK60w <- K60dK60w[order(-K60dK60w$avg),]
+K60dK60w_top50 <- unique(K60dK60w$ID[1:50])
+#write.table(K60dK60w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60d-K60w_6events/K60d-K60w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+8 of 12:
+```{r}
+K60dL60d <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60d-L60d_94events/K60d-L60d_compare_ouput_complete.tab", delim = "\t")
+names(K60dL60d)[names(K60dL60d) == "GeneID"] <- "ID"
+
+K60dL60d <- merge(K60dL60d, K60d_rpkm[,c("K60davg", "ID")], by = "ID", all.x = T)
+K60dL60d <- merge(K60dL60d, L60d_rpkm[,c("L60davg", "ID")], by = "ID", all.x = T)
+K60dL60d$avg <- (K60dL60d$K60davg + K60dL60d$L60davg)/2
+K60dL60d <- K60dL60d[order(-K60dL60d$avg),]
+K60dL60d_top50 <- unique(K60dL60d$ID[1:50])
+#write.table(K60dL60d_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60d-L60d_94events/K60d-L60d_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+9 of 12:
+```{r}
+K60wL60w <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60w-L60w_58events/K60w-L60w_compare_ouput_complete.tab", delim = "\t")
+names(K60wL60w)[names(K60wL60w) == "GeneID"] <- "ID"
+
+K60wL60w <- merge(K60wL60w, K60w_rpkm[,c("K60wavg", "ID")], by = "ID", all.x = T)
+K60wL60w <- merge(K60wL60w, L60w_rpkm[,c("L60wavg", "ID")], by = "ID", all.x = T)
+K60wL60w$avg <- (K60wL60w$K60wavg + K60wL60w$L60wavg)/2
+K60wL60w <- K60wL60w[order(-K60wL60w$avg),]
+K60wL60w_top50 <- unique(K60wL60w$ID[1:50])
+#write.table(K60wL60w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60w-L60w_58events/K60w-L60w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+10 of 12:
+```{r}
+L20dL20w <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/L20d-L20w_706events/L20d-L20w_compare_ouput_complete.tab", delim = "\t")
+names(L20dL20w)[names(L20dL20w) == "GeneID"] <- "ID"
+
+L20dL20w <- merge(L20dL20w, L20d_rpkm[,c("L20davg", "ID")], by = "ID", all.x = T)
+L20dL20w <- merge(L20dL20w, L20w_rpkm[,c("L20wavg", "ID")], by = "ID", all.x = T)
+L20dL20w$avg <- (L20dL20w$L20davg + L20dL20w$L20wavg)/2
+L20dL20w <- L20dL20w[order(-L20dL20w$avg),]
+L20dL20w_top50 <- unique(L20dL20w$ID[1:50])
+#write.table(L20dL20w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/L20d-L20w_706events/L20d-L20w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+11 of 12:
+```{r}
+L40dL40w <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/L40d-L40w_27events/L40d-L40w_compare_ouput_complete.tab", delim = "\t")
+names(L40dL40w)[names(L40dL40w) == "GeneID"] <- "ID"
+
+L40dL40w <- merge(L40dL40w, L40d_rpkm[,c("L40davg", "ID")], by = "ID", all.x = T)
+L40dL40w <- merge(L40dL40w, L40w_rpkm[,c("L40wavg", "ID")], by = "ID", all.x = T)
+L40dL40w$avg <- (L40dL40w$L40davg + L40dL40w$L40wavg)/2
+L40dL40w <- L40dL40w[order(-L40dL40w$avg),]
+L40dL40w_top50 <- unique(L40dL40w$ID[1:50])
+#write.table(L40dL40w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/L40d-L40w_27events/L40d-L40w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+12 of 12:
+```{r}
+L60dL60w <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/L60d-L60w_5events/L60d-L60w_compare_ouput_complete.tab", delim = "\t")
+names(L60dL60w)[names(L60dL60w) == "GeneID"] <- "ID"
+
+L60dL60w <- merge(L60dL60w, L60d_rpkm[,c("L60davg", "ID")], by = "ID", all.x = T)
+L60dL60w <- merge(L60dL60w, L60w_rpkm[,c("L60wavg", "ID")], by = "ID", all.x = T)
+L60dL60w$avg <- (L60dL60w$L60davg + L60dL60w$L60wavg)/2
+L60dL60w <- L60dL60w[order(-L60dL60w$avg),]
+L60dL60w_top50 <- unique(L60dL60w$ID[1:50])
+#write.table(L60dL60w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/L60d-L60w_5events/L60d-L60w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
+```
+
+merge top50 lists and select the most common genes.
