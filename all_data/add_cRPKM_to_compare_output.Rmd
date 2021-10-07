@@ -237,4 +237,17 @@ L60dL60w_top50 <- unique(L60dL60w$ID[1:50])
 #write.table(L60dL60w_top50, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/L60d-L60w_5events/L60d-L60w_top50_cRPKM.txt", sep = "\n", row.names = F, col.names = F, quote = F)
 ```
 
-merge top50 lists and select the most common genes.
+5. count how many times each gene appears across all lists
+6. rank and select genes accordingly
+```{r}
+all_top50 <- list(K20dK20w_top50, K20dL20d_top50, K20wL20w_top50, K40dK40w_top50, K40dL40d_top50, K40wL40w_top50, K60dK60w_top50, K60dL60d_top50, K60wL60w_top50, L20dL20w_top50, L40dL40w_top50, L60dL60w_top50)
+
+#it has stupid column names, but hey, it works!
+all_top50df <- data.frame(lapply(all_top50, "length<-", max(lengths(all_top50))))
+occurances <- as.data.frame(table(unlist(all_top50df)))
+occurances <- occurances[order(-occurances$Freq),]
+occurances
+
+write.table(occurances, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/all_top50_occurances.txt", sep = "\t", row.names = F, col.names = F, quote = F)
+```
+
