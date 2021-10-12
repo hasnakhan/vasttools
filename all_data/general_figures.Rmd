@@ -1,0 +1,29 @@
+---
+title: "general figures"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+inc <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/complete_inclusion_table.tab", delim = "\t")
+```
+
+figure 1: AS events between sample groups. right now I'm thinking this would work best as a venn diagram, but if there's not a lot of overlap then maybe I'll convert it to a table. I'm expecting overlaps between the groups that are reasonably similar (ex. watered samples across timepoints, since that'll just be an age effect). To start with, I'm gonna use 25% sequence inclusion / splice site usage as my cutoff to say that AS occurred (I think this makes sense since that's also my dAS cutoff, so a 0 vs 25% sequence inclusion would have been considered an AS event)
+
+1.1: construct a df for each treatment group. This will allow us to filter down to events where all reps have sufficient read coverage, and also average the replicates, and choose the events with AS
+
+```{r}
+K20d <- inc %>% select(c("EVENT", contains("K20d"))) %>% 
+  mutate("pass" = ifelse(
+  str_sub(`D6K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D6K20d3_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d5_191011_NextSeq-Q`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(K20d[, unlist(lapply(K20d, is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+```
+

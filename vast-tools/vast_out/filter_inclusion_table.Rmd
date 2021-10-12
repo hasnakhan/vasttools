@@ -1,0 +1,24 @@
+---
+title: "filter inclusion table"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+inc_table <- read_delim("INCLUSION_LEVELS_FULL-araTha10-2.tab", delim = "\t")
+names <- colnames(inc_table)
+qual_scores <- grep(".*-Q$", names, value = T)
+#this doesn't actually work, it only looks for rows where the first -Q column isn't N
+#haven't totally fixed this yet
+#update: figured it out, it's in the general_figures.Rmd code
+filtered <- inc_table %>% filter(substr(!!as.name(qual_scores), 1, 1) != "N")
+```
+
+```{r}
+#write.table(filtered, file = "Inclusion_levels_n_filtered_out.tab", row.names = F, na = "", quote = F, sep = "\t")
+```
+
+
