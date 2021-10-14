@@ -17,7 +17,7 @@ average the replicates
 ```{r}
 #change these every time
 #you'll get an error if you try to call a column that doesn't exist
-comp3 <- comp2 %>% mutate(GC_avg = rowMeans(select(comp2, c(D7K40d1_191011_NextSeq, D7K40d2_191011_NextSeq))), leaf_avg = rowMeans(select(comp2, c(D6L40d1_190903_NextSeq_R1, D6L40d2_190903_NextSeq_R1, D6L40d3_190919_NextSeq))))
+comp3 <- comp2 %>% mutate(GC_avg = rowMeans(select(comp2, c(D7K60W2_190919_NextSeq, D7K60W3_190919_NextSeq, D7K60W4_190919_NextSeq))), leaf_avg = rowMeans(select(comp2, c(D6L60W1_190903_NextSeq_R1, D6L60W2_190903_NextSeq_R1, D6L60W3_190903_NextSeq_R1))))
 ```
 
 percent AS calculation varies by type (ie. percent sequence inclusion has a different meaning in each event type)
@@ -34,16 +34,16 @@ write out the lists of ATG codes
 ```{r}
 ATG_GC <- comp4 %>% filter(more_AS == "GC") %>% 
   select(GeneID)
-write.table(ATG_GC, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/GC_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+write.table(ATG_GC, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60w-L60w_58events/GC_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
 ATG_leaf <- comp4 %>% filter(more_AS == "leaf") %>% 
   select(GeneID)
-write.table(ATG_leaf, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/leaf_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+write.table(ATG_leaf, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60w-L60w_58events/leaf_up_ATGs.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
 ```
 
 once we output the ATG codes for GO, we run them through AgriGo, using the vast-tools generated backgroup (multi-exon genes with similar read coverage, to avoid enrichment of highly-expressed genes)
 
 ```{r}
-GO_output <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K40d-L40d_168events/leaf_up_GO.txt", delim = "\t")
+GO_output <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K60w-L60w_58events/leaf_up_GO.txt", delim = "\t")
 
 #filter out non-significant GO terms
 GO_output <- GO_output %>% filter(FDR <= 0.05) %>% select(c("Term", "term_type", "entries"))
@@ -55,10 +55,10 @@ wide <- cSplit(GO_output, "entries", "//" )
 find_all_na <- function(x) any(!is.na(x))
 wide <- wide %>% select(where(find_all_na))
 #also the first column has a / at the beginning
-wide$entries_002 <- str_remove(wide$entries_002, "/")
+wide$entries_02 <- str_remove(wide$entries_02, "/")
 
 #okkk looks good. now pivot longer to get one row per GO-AGI pair
-long <- wide %>% pivot_longer(entries_002:entries_100, names_to = "waste_of_space", values_to = "AGI_code") %>% 
+long <- wide %>% pivot_longer(entries_02:entries_12, names_to = "waste_of_space", values_to = "AGI_code") %>% 
   select(-waste_of_space) %>% 
   na.omit(AGI_code)
 ```
@@ -77,6 +77,9 @@ full <- merge(long, AGI_AS, by = "AGI_code", all.x = T)
 #according to this, all the AS events are intron retentions, which is gonna make graphing way less fun
 #of note, this is a left join since we want all the rows from long, but not all the rows from AGI_AS
 #we do, however, get duplicate ATG#s for when a single gene has multiple AS events (which is what we want)
+
+#one thing this actually gets wrong, is that it only counts up to one of each AS type per gene (like one IR, one ALTA, etc), but a lot of cases have multiple events of the same type. not critical for now, but something to keep in mind. 
+
 to_plot <- full %>% group_by(Term, Event_type, term_type) %>% 
   summarize(Number_of_Events = n())
 ```
@@ -91,13 +94,13 @@ to_plot <- merge(to_plot, order_stuff, by = "Term", all.x = T)
 
 ```{r}
 #all GO terms
-tiff("test.tiff", units="in", width=10, height=15, res=300)
+tiff("test.tiff", units="in", width=10, height=10, res=300)
 ggplot(to_plot, aes(x = Number_of_Events, y = reorder(Term, -sum), fill = Event_type))+
   geom_barh(position = "stack", stat = "identity")+
   theme_minimal()+
   labs(x = "Number of Events",
        y = "GO term")+
-  scale_fill_manual(values = c("#00BFC4", "#7CAE00", "#F8766D"))
+  scale_fill_manual(values = c("#00BFC4", "#F8766D"))
 dev.off()
 ```
 

@@ -5,6 +5,7 @@ output: html_document
 
 ```{r}
 library(tidyverse)
+library(ggVennDiagram)
 ```
 
 ```{r}
@@ -20,10 +21,323 @@ K20d <- inc %>% select(c("EVENT", contains("K20d"))) %>%
   mutate("pass" = ifelse(
   str_sub(`D6K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D6K20d3_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d5_191011_NextSeq-Q`, 1, 1) == "N", "no", "yes")) %>% 
   filter(pass == "yes") %>% 
-  mutate("mean" = rowMeans(K20d[, unlist(lapply(K20d, is.numeric))])) %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
   mutate("AS_percent" = ifelse(
   grepl("AthEX.*", EVENT), 100 - mean, mean
   )) %>% 
   filter(AS_percent >= 25)
+K20d_events <- K20d$EVENT
+
+K40d <- inc %>% select(c("EVENT", contains("K40d"))) %>% 
+  mutate("pass" = ifelse(
+  str_sub(`D7K40d1_191011_NextSeq`, 1, 1) == "N" | str_sub(`D7K40d2_191011_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K40d_events <- K40d$EVENT
+
+K60d <- inc %>% select(c("EVENT", contains("K60d"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D7K60d1_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K60d2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K60d3_191011_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K60d_events <- K60d$EVENT
+
+K20w <- inc %>% select(c("EVENT", contains("K20W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D7K20W1_191011_NextSeq`, 1, 1) == "N" | str_sub(`D7K20W2_191011_NextSeq`, 1, 1) == "N" | str_sub(`D6K20W1_191011_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K20w_events <- K20w$EVENT
+
+K40w <- inc %>% select(c("EVENT", contains("K40W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D7K40W2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K40W3_191011_NextSeq`, 1, 1) == "N" | str_sub(`D7K40W4_191011_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K40w_events <- K40w$EVENT
+
+K60w <- inc %>% select(c("EVENT", contains("K60W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D7K60W2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K60W3_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K60W4_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K60w_events <- K60w$EVENT
+
+L20d <- inc %>% select(c("EVENT", contains("L20d"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L20d1_190919_NextSeq`, 1, 1) == "N" | str_sub(`D6L20d2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D6L20d3_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L20d_events <- L20d$EVENT
+
+L40d <- inc %>% select(c("EVENT", contains("L40d"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L40d1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L40d2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L40d3_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L40d_events <- L40d$EVENT
+
+L60d <- inc %>% select(c("EVENT", contains("L60d"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L60d1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L60d2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L60d3_190903_NextSeq_R1`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L60d_events <- L60d$EVENT
+
+L20w <- inc %>% select(c("EVENT", contains("L20W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L20W1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L20W2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L20W3_190903_NextSeq_R1`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L20w_events <- L20w$EVENT
+
+L40w <- inc %>% select(c("EVENT", contains("L40W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L40W1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L40W2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L40W3_190903_NextSeq_R1`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L40w_events <- L40w$EVENT
+
+L60w <- inc %>% select(c("EVENT", contains("L60W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L60W1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L60W2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L60W3_190903_NextSeq_R1`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L60w_events <- L60w$EVENT
+
+Krw <- inc %>% select(c("EVENT", contains("Krw"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6Krw1_191011_NextSeq`, 1, 1) == "N" | str_sub(`D6Krw3_191011_NextSeq`, 1, 1) == "N" | str_sub(`D7Krw2_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+Krw_events <- Krw$EVENT
+
+Lrw <- inc %>% select(c("EVENT", contains("Lrw"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6Lrw1_190919_NextSeq`, 1, 1) == "N" | str_sub(`D6Lrw2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D6Lrw3_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+Lrw_events <- Lrw$EVENT
 ```
 
+```{r}
+#to_plot <- list(K20d_events, K40d_events, K60d_events, K20w_events, K40w_events, K60w_events, Krw_events, L20d_events, L40d_events, L60d_events, L20w_events, L40w_events, L60w_events, Lrw_events)
+
+#ggVennDiagram(to_plot)
+#too many dimensions. need to combine at least a few groups together. let's check some correlations
+
+n_K20wK40w <- length(unique(c(K20w_events, K40w_events))) #116572
+length(K20w_events)/n_K20wK40w # = 89%
+length(K40w_events)/n_K20wK40w # = 87%
+
+n_K40wK60w <- length(unique(c(K40w_events, K60w_events)))
+length(K40w_events)/n_K40wK60w # = 88%
+length(K60w_events)/n_K40wK60w # = 88%
+
+n_K20wK40wK60w <- length(unique(c(K20w_events, K40w_events, K60w_events)))
+length(K20w_events)/n_K20wK40wK60w # = 84%
+length(K40w_events)/n_K20wK40wK60w # = 82%
+length(K60w_events)/n_K20wK40wK60w # = 82%
+#gonna go with this, all watered together
+
+n_L20wL40wL60w <- length(unique(c(L20w_events, L40w_events, L60w_events)))
+length(L20w_events)/n_L20wL40wL60w # = 90%
+length(L40w_events)/n_L20wL40wL60w # = 86%
+length(L60w_events)/n_L20wL40wL60w # = 86%
+
+n_K20dK40dK60d <- length(unique(c(K20d_events, K40d_events, K60d_events)))
+length(K20d_events)/n_K20dK40dK60d # = 35% whoaaaaa
+length(K40d_events)/n_K20dK40dK60d # = 80%
+length(K60d_events)/n_K20dK40dK60d # = 86%
+#aight so we gotta drop the K20d
+
+n_K40dK60d <- length(unique(c(K40d_events, K60d_events)))
+length(K40d_events)/n_K40dK60d # = 83%
+length(K60d_events)/n_K40dK60d # = 89%
+
+n_L20dL40dL60d <- length(unique(c(L20d_events, L40d_events, L60d_events)))
+length(L20d_events)/n_L20dL40dL60d # = 93%
+length(L40d_events)/n_L20dL40dL60d # = 83%
+length(L60d_events)/n_L20dL40dL60d # = 76%
+#gonna try dropping L20d and see if it helps the other 2
+
+n_L40dL60d <- length(unique(c(L40d_events, L60d_events)))
+length(L40d_events)/n_L40dL60d # = 93%
+length(L60d_events)/n_L40dL60d # = 86%
+
+n_L20dLrw <- length(unique(c(L20d_events, Lrw_events)))
+length(L20d_events)/n_L20dLrw # = 95%
+length(Lrw_events)/n_L20dLrw # = 89%
+
+n_K20dKrw <- length(unique(c(K20d_events, Krw_events)))
+length(K20d_events)/n_K20dKrw #36% again, nuts
+length(Krw_events)/n_K20dKrw #98%
+
+#ok, so we should be down to 7 groups: L20dLrw, K20d, L40dL60d, K40dK60d, L20wL40wL60w, K20wK40wK60w and Krw
+L20dLrw <- unique(c(L20d_events, Lrw_events))
+L40dL60d <- unique(c(L40d_events, L60d_events))
+K40dK60d <- unique(c(K40d_events, K60d_events))
+L20wL40wL60w <- unique(c(L20w_events, L40w_events, L60w_events))
+K20wK40wK60w <- unique(c(K20w_events, K40w_events, K60w_events))
+
+to_plot <- list(K20d_events, K40dK60d, K20wK40wK60w, Krw_events, L20dLrw, L40dL60d, L20wL40wL60w)
+```
+
+```{r}
+tiff("test.tiff", units="in", width=15, height=12, res=300)
+ggVennDiagram(to_plot,
+              label_color = "white",
+              label_size = 3,
+              label_alpha = 0,
+              label = "percent",
+              category.names = c("K20d", "K40dK60d", "K20wK40wK60w", "Krw", "L20dLrw", "L40dL60d", "L20wL40wL60w"),
+              set_size = 4,
+              edge_size = 3)
+dev.off()
+```
+ok, so this looks pretty good. the key is that most AS events are shared across all groups. This also suggests that gene expression probably didn't limit read depth, since we looked at read depth for all groups separately (ie. there aren't tons of events missing from certain groups because the gene is low expressed). we also see a large subset of genes with AS in all groups except L20d. makes sense since this group has the least AS overall, and maybe this is due to less expression leading to less detection. It would be super cool to do GO analysis on this group to see what's up. but first, try and figure out how many of these genes had insufficient read coverage in K20d, to see if it's an expression thing.
+
+so.
+1. figure out which genes are in the bright blue section (AS in everything except L20d)
+2. figure out which of these are and aren't expressed well enough (read depth coverage)
+3. do GO enrichment on both lists
+```{r}
+#1. figure out which genes are in the bright blue section
+all_events <- as.data.frame(unique(c(K20d_events, K40dK60d, K20wK40wK60w, Krw_events, L20dLrw, L40dL60d, L20wL40wL60w)))
+colnames(all_events) <- "event"
+not_in_L20d <- filter (all_events, !event %in% K20d_events)
+
+#2. figure out which of these are and aren't expressed well enough to meet read coverage cutoff
+K20d_all <- inc %>% select(c("EVENT", contains("K20d"))) %>% 
+  mutate("pass" = ifelse(
+  str_sub(`D6K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D6K20d3_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d5_191011_NextSeq-Q`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(EVENT %in% all_events$event)
+#K20d_all now includes all the events with AS of at least 1 other group (recall that most of these are shared by all other groups except L20d.)
+K20d_expressed <- filter(K20d_all, pass == "yes") #53150 events
+K20d_unexpressed <- filter(K20d_all, pass == "no") #98053 events
+
+#gonna need that key that matches event codes to ATG#s
+db <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/vast-tools/Ath/FILES/Ath.Event-Gene.IDs.txt", delim = "\t")
+colnames(db) <- c("EVENT", "GeneID")
+K20d_expressed <- merge(K20d_expressed, db, by = "EVENT", all.x = T)
+K20d_unexpressed <- merge(K20d_unexpressed, db, by = "EVENT", all.x = T)
+K20d_expressed_genes <- unique(K20d_expressed$GeneID) #8594 genes
+K20d_unexpressed_genes <- unique(K20d_unexpressed$GeneID) #15777 genes
+
+#write.table(K20d_expressed_genes, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_expressed_not_spliced.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+
+#write.table(K20d_unexpressed_genes, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_not_expressed_not_spliced.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+```
+
+read back in the GO results and plot
+```{r}
+#we're not interested so much in the types of AS events, since that will be covered in another figure. What we're gonna do is just look at the kinds of genes that are showing AS in everything except L20d, based on whether or not L20d has expression of that gene
+```
+
+also kinda wanna know: what's the middle?
+```{r}
+spliced_in_all <- tibble(EVENT=Reduce(intersect, list(K20d_events, K40dK60d, K20wK40wK60w, Krw_events, L20dLrw, L40dL60d, L20wL40wL60w)))
+spliced_in_all <- merge(spliced_in_all, db, by = "EVENT", all.x = T)
+#write.table(spliced_in_all$GeneID, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/spliced_in_all.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+```
+
+let's look at all the AS events, and what kinds they are
+```{r}
+all_events <- all_events %>% mutate(type = case_when(
+  grepl("AthEX.*", event) ~ "Exon skipping",
+  grepl("AthALTA.*", event) ~ "Alternative 3' SS",
+  grepl("AthALTD", event) ~ "Alternative 5' SS",
+  grepl("AthINT", event) ~ "Intron retention"
+))
+ES <- all_events %>% filter(type == "Exon skipping") %>% 
+  select(event)
+colnames(ES) <- "EVENT"
+ALTA <- all_events %>% filter(type == "Alternative 3' SS") %>% 
+  select(event)
+colnames(ALTA) <- "EVENT"
+ALTD <- all_events %>% filter(type == "Alternative 5' SS") %>% 
+  select(event)
+colnames(ALTD) <- "EVENT"
+IR <- all_events %>% filter(type == "Intron retention") %>% 
+  select(event)
+colnames(IR) <- "EVENT"
+ES <- merge(ES, db, by = "EVENT", all.x = T)
+ES_genes <- unique(ES$GeneID)
+ALTA <- merge(ALTA, db, by = "EVENT", all.x = T)
+ALTA_genes <- unique(ALTA$GeneID)
+ALTD <- merge(ALTD, db, by = "EVENT", all.x = T)
+ALTD_genes <- unique(ALTD$GeneID)
+IR <- merge(IR, db, by = "EVENT", all.x = T)
+IR_genes <- unique(IR$GeneID)
+
+to_plot_2 <- list(ES_genes, IR_genes, ALTA_genes, ALTD_genes)
+```
+
+```{r}
+tiff("test.tiff", units="in", width=20, height=15, res=300)
+ggVennDiagram(to_plot_2,
+              label_color = "white",
+              label_alpha = 0,
+              category.names = c("Exon skipping", "Intron retention", "Alternative 3' SS", "Alternative 5' SS"),
+              label_size = 8,
+              set_size = 6,
+              edge_size = 2)+
+  scale_fill_gradient(high = "green", low = "grey")
+dev.off()
+```
+
+
+
+also wants to make plots for AS between treatment groups: count up the events and find the overlap, make one plot each for genotype and drought. this means reading back in all the compare outputs and generating a list of events for each one.
