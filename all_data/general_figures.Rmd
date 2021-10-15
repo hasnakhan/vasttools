@@ -6,6 +6,7 @@ output: html_document
 ```{r}
 library(tidyverse)
 library(ggVennDiagram)
+library(ggstance)
 ```
 
 ```{r}
@@ -172,6 +173,7 @@ str_sub(`D6Lrw1_190919_NextSeq`, 1, 1) == "N" | str_sub(`D6Lrw2_190919_NextSeq`,
 Lrw_events <- Lrw$EVENT
 ```
 
+figure out what groups we can combine (share >80% splicing events)
 ```{r}
 #to_plot <- list(K20d_events, K40d_events, K60d_events, K20w_events, K40w_events, K60w_events, Krw_events, L20d_events, L40d_events, L60d_events, L20w_events, L40w_events, L60w_events, Lrw_events)
 
@@ -235,6 +237,7 @@ K20wK40wK60w <- unique(c(K20w_events, K40w_events, K60w_events))
 to_plot <- list(K20d_events, K40dK60d, K20wK40wK60w, Krw_events, L20dLrw, L40dL60d, L20wL40wL60w)
 ```
 
+plot AS events by group (venn diagram)
 ```{r}
 tiff("test.tiff", units="in", width=15, height=12, res=300)
 ggVennDiagram(to_plot,
@@ -281,10 +284,141 @@ K20d_unexpressed_genes <- unique(K20d_unexpressed$GeneID) #15777 genes
 #write.table(K20d_unexpressed_genes, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_not_expressed_not_spliced.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
 ```
 
-read back in the GO results and plot
+read back in the GO results (agrigo --> R (here) --. revigo --> R): K20d_expressed_not_spliced_p or _c or _f
 ```{r}
 #we're not interested so much in the types of AS events, since that will be covered in another figure. What we're gonna do is just look at the kinds of genes that are showing AS in everything except L20d, based on whether or not L20d has expression of that gene
+
+#table of all significant GO terms, copied frm AgriGO output
+GO_output <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_expressed_not_spliced_GO_table.txt", delim = "\t")
+#there's 903 terms here... which are the most interesting?
+#let's read out go terms and p-vals for revigo
+revigo_input <- GO_output %>% select(`GO term`, `p-value`)
+#write.table(revigo_input, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_expressed_not_spliced_revigo_input.txt", sep = "\t", row.names = F, col.names = F, quote = F)
+#gonna run revigo, using small output list setting (0.5 dispensability cutoff)
+
+#now, gonna take the revigo output and filter out all the terms with dispensability greater than 0.5. Then I'm gonna remove terms with a frequency > 10% (more general terms) and also impose a stricter FDR cutoff. Then see how many we got left
+revigo_output_p <- read_csv("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_expressed_not_spliced_Revigo.csv")
+names(revigo_output_p)[names(revigo_output_p) == "TermID"] <- "GO term"
+revigo_output_p <- merge(revigo_output_p, GO_output, by = "GO term", all.x = T)
+revigo_output_p <- revigo_output_p %>% filter(Eliminated == "False", as.numeric(Frequency) < 10, FDR <= 0.01, `Number in input list` >= 200)
+#this is fine. i think. it better be...
+
+revigo_output_c <- read_csv("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_expressed_not_spliced_Revigo_c.csv")
+names(revigo_output_c)[names(revigo_output_c) == "TermID"] <- "GO term"
+revigo_output_c <- merge(revigo_output_c, GO_output, by = "GO term", all.x = T)
+revigo_output_c <- revigo_output_c %>% filter(Eliminated == "False", as.numeric(Frequency) < 10, FDR <= 0.01, `Number in input list` >= 200)
+
+revigo_output_f <- read_csv("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_expressed_not_spliced_Revigo_f.csv")
+names(revigo_output_f)[names(revigo_output_f) == "TermID"] <- "GO term"
+revigo_output_f <- merge(revigo_output_f, GO_output, by = "GO term", all.x = T)
+revigo_output_f <- revigo_output_f %>% filter(Eliminated == "False", as.numeric(Frequency) < 10, FDR <= 0.01, `Number in input list` >= 100)
+#went with a looser cutoff here
 ```
+
+plot: K20d_expressed_not_spliced_p
+```{r}
+tiff("test.tiff", units="in", width=10, height=10, res=300)
+ggplot(revigo_output_p, aes(x = `Number in input list`, y = reorder(Name, -`Number in input list`)))+
+  geom_barh(position = "stack", stat = "identity", fill = "pink")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
+```
+
+plot: K20d_expressed_not_spliced_c
+```{r}
+tiff("test.tiff", units="in", width=10, height=7, res=300)
+ggplot(revigo_output_c, aes(x = `Number in input list`, y = reorder(Name, -`Number in input list`)))+
+  geom_barh(position = "stack", stat = "identity", fill = "seagreen1")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
+```
+
+plot: K20d_expressed_not_spliced_f
+```{r}
+tiff("test.tiff", units="in", width=10, height=7, res=300)
+ggplot(revigo_output_f, aes(x = `Number in input list`, y = reorder(Name, -`Number in input list`)))+
+  geom_barh(position = "stack", stat = "identity", fill = "cadetblue2")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
+```
+
+
+read back in the GO results (agrigo --> R (here) --. revigo --> R): K20d_not_expressed_not_spliced_p or _c or _f
+```{r}
+#we're not interested so much in the types of AS events, since that will be covered in another figure. What we're gonna do is just look at the kinds of genes that are showing AS in everything except L20d, based on whether or not L20d has expression of that gene
+
+#table of all significant GO terms, copied frm AgriGO output
+GO_output <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_not_expressed_not_spliced_GO_table.txt", delim = "\t")
+#there's 903 terms here... which are the most interesting?
+#let's read out go terms and p-vals for revigo
+revigo_input <- GO_output %>% select(`GO term`, `p-value`)
+#write.table(revigo_input, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_not_expressed_not_spliced_revigo_input.txt", sep = "\t", row.names = F, col.names = F, quote = F)
+#gonna run revigo, using small output list setting (0.5 dispensability cutoff)
+
+#now, gonna take the revigo output and filter out all the terms with dispensability greater than 0.5. Then I'm gonna remove terms with a frequency > 10% (more general terms) and also impose a stricter FDR cutoff. Then see how many we got left
+revigo_output_p <- read_csv("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_not_expressed_not_spliced_Revigo_p.csv")
+names(revigo_output_p)[names(revigo_output_p) == "TermID"] <- "GO term"
+revigo_output_p <- merge(revigo_output_p, GO_output, by = "GO term", all.x = T)
+revigo_output_p <- revigo_output_p %>% filter(Eliminated == "FALSE", Frequency < 10, FDR <= 0.01, `Number in input list` >= 200)
+#this is fine. i think. it better be...
+
+revigo_output_c <- read_csv("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_not_expressed_not_spliced_Revigo_c.csv")
+names(revigo_output_c)[names(revigo_output_c) == "TermID"] <- "GO term"
+revigo_output_c <- merge(revigo_output_c, GO_output, by = "GO term", all.x = T)
+revigo_output_c <- revigo_output_c %>% filter(Eliminated == "False", as.numeric(Frequency) < 10, FDR <= 0.01,  `Number in input list` >= 200)
+
+revigo_output_f <- read_csv("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_not_expressed_not_spliced_Revigo_f.csv")
+names(revigo_output_f)[names(revigo_output_f) == "TermID"] <- "GO term"
+revigo_output_f <- merge(revigo_output_f, GO_output, by = "GO term", all.x = T)
+revigo_output_f <- revigo_output_f %>% filter(Eliminated == "False", as.numeric(Frequency) < 10, FDR <= 0.01,  `Number in input list` >= 100)
+#went with a looser cutoff here
+```
+
+plot: K20d_not_expressed_not_spliced_p
+```{r}
+tiff("test.tiff", units="in", width=10, height=10, res=300)
+ggplot(revigo_output_p, aes(x = `Number in input list`, y = reorder(Name, -`Number in input list`)))+
+  geom_barh(position = "stack", stat = "identity", fill = "pink")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
+```
+
+plot: K20d_not_expressed_not_spliced_c
+```{r}
+tiff("test.tiff", units="in", width=18, height=10, res=300)
+ggplot(revigo_output_c, aes(x = `Number in input list`, y = reorder(Name, -`Number in input list`)))+
+  geom_barh(position = "stack", stat = "identity", fill = "seagreen1")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  theme(axis.text.y = element_text(size = 20))
+dev.off()
+```
+
+plot: K20d_not_expressed_not_spliced_f
+```{r}
+tiff("test.tiff", units="in", width=10, height=10, res=300)
+ggplot(revigo_output_f, aes(x = `Number in input list`, y = reorder(Name, -`Number in input list`)))+
+  geom_barh(position = "stack", stat = "identity", fill = "cadetblue2")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  theme(axis.text.y = element_text(size = 20))
+dev.off()
+```
+
 
 also kinda wanna know: what's the middle?
 ```{r}
@@ -325,6 +459,7 @@ IR_genes <- unique(IR$GeneID)
 to_plot_2 <- list(ES_genes, IR_genes, ALTA_genes, ALTD_genes)
 ```
 
+plot AS events by type
 ```{r}
 tiff("test.tiff", units="in", width=20, height=15, res=300)
 ggVennDiagram(to_plot_2,
