@@ -3,6 +3,9 @@ title: "general figures"
 output: html_document
 ---
 
+these figures can be found in vasttools/all_data/dPSI25_no_merging_all_reps/splicing graphs.pptx. As explains there, this script defines AS as an event occuring 25% of the time or more (so 25% IR or alt-SS usage, or 75% or less exon inclusion). As of Oct 26/21, we're switching to defining AS as 10% <= PSI <= 90% (from Martin et al 2021) for all vast-tools derived data (and probably all other algorithms going forward). This script has not been changed to reflect this yet. If we decide to use any of these figures in the future, we need to alter this script accordingly and re-run certain analyses (looking at you, GO enrichment). 
+
+
 ```{r}
 library(tidyverse)
 library(ggVennDiagram)
@@ -358,7 +361,7 @@ read back in the GO results (agrigo --> R (here) --. revigo --> R): K20d_not_exp
 
 #table of all significant GO terms, copied frm AgriGO output
 GO_output <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_not_expressed_not_spliced_GO_table.txt", delim = "\t")
-#there's 903 terms here... which are the most interesting?
+
 #let's read out go terms and p-vals for revigo
 revigo_input <- GO_output %>% select(`GO term`, `p-value`)
 #write.table(revigo_input, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d_not_expressed_not_spliced_revigo_input.txt", sep = "\t", row.names = F, col.names = F, quote = F)
@@ -425,6 +428,64 @@ also kinda wanna know: what's the middle?
 spliced_in_all <- tibble(EVENT=Reduce(intersect, list(K20d_events, K40dK60d, K20wK40wK60w, Krw_events, L20dLrw, L40dL60d, L20wL40wL60w)))
 spliced_in_all <- merge(spliced_in_all, db, by = "EVENT", all.x = T)
 #write.table(spliced_in_all$GeneID, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/spliced_in_all.txt", sep = "\n", row.names = F, na = "", quote = F, col.names = F)
+#run agrigo v2
+
+GO_output <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/spliced_in_all_GO_table.txt", delim = "\t")
+revigo_input <- GO_output %>% select(`GO term`, `p-value`)
+#write.table(revigo_input, "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/spliced_in_all_revigo_input.txt", sep = "\t", row.names = F, col.names = F, quote = F)
+#gonna run revigo, using small output list setting (0.5 dispensability cutoff)
+
+#now, gonna take the revigo output and filter out all the terms with dispensability greater than 0.5. Then I'm gonna remove terms with a frequency > 10% (more general terms) and also impose a stricter FDR cutoff. Then see how many we got left
+revigo_output_p <- read_csv("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/spliced_in_all_Revigo_p.csv")
+names(revigo_output_p)[names(revigo_output_p) == "TermID"] <- "GO term"
+revigo_output_p <- merge(revigo_output_p, GO_output, by = "GO term", all.x = T)
+revigo_output_p <- revigo_output_p %>% filter(Eliminated == "False", Frequency < 10, FDR <= 0.01, `Number in input list` >= 100)
+
+revigo_output_c <- read_csv("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/spliced_in_all_Revigo_c.csv")
+names(revigo_output_c)[names(revigo_output_c) == "TermID"] <- "GO term"
+revigo_output_c <- merge(revigo_output_c, GO_output, by = "GO term", all.x = T)
+revigo_output_c <- revigo_output_c %>% filter(Eliminated == "FALSE", Frequency < 10, FDR <= 0.01, `Number in input list` >= 100)
+
+revigo_output_f <- read_csv("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/spliced_in_all_Revigo_f.csv")
+names(revigo_output_f)[names(revigo_output_f) == "TermID"] <- "GO term"
+revigo_output_f <- merge(revigo_output_f, GO_output, by = "GO term", all.x = T)
+revigo_output_f <- revigo_output_f %>% filter(Eliminated == "False", Frequency < 10, FDR <= 0.01, `Number in input list` >= 100)
+```
+
+plot: spliced_in_all_p
+```{r}
+tiff("test.tiff", units="in", width=10, height=10, res=300)
+ggplot(revigo_output_p, aes(x = `Number in input list`, y = reorder(Name, -`Number in input list`)))+
+  geom_barh(position = "stack", stat = "identity", fill = "pink")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
+```
+
+plot: spliced_in_all_c
+```{r}
+tiff("test.tiff", units="in", width=10, height=10, res=300)
+ggplot(revigo_output_c, aes(x = `Number in input list`, y = reorder(Name, -`Number in input list`)))+
+  geom_barh(position = "stack", stat = "identity", fill = "seagreen1")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
+```
+
+plot: spliced_in_all_f
+```{r}
+tiff("test.tiff", units="in", width=10, height=10, res=300)
+ggplot(revigo_output_f, aes(x = `Number in input list`, y = reorder(Name, -`Number in input list`)))+
+  geom_barh(position = "stack", stat = "identity", fill = "cadetblue2")+
+  theme_minimal()+
+  labs(x = "Number of Events",
+       y = "GO term")+
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
 ```
 
 let's look at all the AS events, and what kinds they are
