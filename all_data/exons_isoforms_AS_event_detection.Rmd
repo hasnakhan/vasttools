@@ -1,0 +1,292 @@
+---
+title: "exons, isoforms and AS event detection"
+output: html_document
+---
+
+this is idea number 5 in the figure wishlist. The idea here is to probe the notion that AS event detection can be increased using a de novo assembly method. To get at this, we're going to find out if the genes with detected AS events (defined in Cmero et al 2021 as 10 <= PSI <= 90) have a higher than expected number of isoforms in the database. To do this, we need to:
+```{r}
+library(tidyverse)
+```
+
+1. identify all multiexonic genes in Arabidopsis
+2. count the number of exons of these genes
+```{r}
+gtf <- read_delim("C:/Users/hasna/Documents/MSc_project/kallisto/kallisto/Arabidopsis_thaliana.TAIR10.51.gtf", delim = "\t", col_names = F)
+gtf <- gtf %>% filter(X3 == "exon")
+gtf$GeneID <- str_split(gtf$X9, ";", simplify = T)[,1]
+gtf$transcript <- str_split(gtf$X9, ";", simplify = T)[,2]
+gtf$GeneID <- str_sub(gtf$GeneID, 10, 18)
+gtf$transcript <- str_sub(gtf$transcript, 17, 27)
+gtf <- gtf %>% group_by(GeneID, transcript) %>% 
+  summarize ("num_exons" = n()) %>%
+  group_by(GeneID) %>% 
+  summarize("mean_exons" = mean(num_exons)) %>% 
+  filter(mean_exons > 1)
+#gtf now contains multi-exonic genes and the mean number of exons in each
+```
+
+3. count the nunber of isoforms of gene are present in the database in question. For now, these are vastDB and AtRTD2.
+```{r}
+vastdb <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/vast-tools/Ath/FILES/Ath.Event-Gene.IDs.txt", delim = "\t")
+vastdb_events <- vastdb %>% group_by(GeneID) %>% 
+  summarize(num_events = n())
+```
+
+4. plot number of isoforms as a function of exon number. This will help us to understand if transcript isoforms databases are fairly saturated, or if there are potentially undiscovered splice isoforms out there.
+```{r}
+exons_vastdb_events <- merge(vastdb_events, gtf, by = "GeneID", all.x = T)
+
+ggplot(exons_vastdb_events, aes(x = mean_exons, y = num_events))+
+  geom_point()+
+  labs(x = "Average number of exons (Araport11)",
+       y = "Number of splice isoforms (VastDB)")+
+  geom_smooth(method = "lm", se = F)
+exons_vastdb_events_lm <- lm(exons_vastdb_events$num_events ~ exons_vastdb_events$mean_exons)
+summary(exons_vastdb_events_lm)
+#R squared is 0.8423, num_exons is significant (p < 2e-16)
+```
+
+
+
+5. determine if AS genes have a higher number of isoforms per gene in the database than would be predicted by random chance. Do this by finding the mean and sd of the population isoforms and using that to calculate the mean and sd of the sampling distribution of isoforms. The calculate the z-score of the mean of isoforms in the AS sample, and use it to find the probability.
+
+stealing some awful code from general_figures.Rmd that pulls out all the alt-splicing events
+```{r}
+inc <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/complete_inclusion_table.tab", delim = "\t")
+
+K20d <- inc %>% select(c("EVENT", contains("K20d"))) %>% 
+  mutate("pass" = ifelse(
+  str_sub(`D6K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D6K20d3_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d5_191011_NextSeq-Q`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K20d_events <- K20d$EVENT
+
+K40d <- inc %>% select(c("EVENT", contains("K40d"))) %>% 
+  mutate("pass" = ifelse(
+  str_sub(`D7K40d1_191011_NextSeq`, 1, 1) == "N" | str_sub(`D7K40d2_191011_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K40d_events <- K40d$EVENT
+
+K60d <- inc %>% select(c("EVENT", contains("K60d"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D7K60d1_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K60d2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K60d3_191011_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K60d_events <- K60d$EVENT
+
+K20w <- inc %>% select(c("EVENT", contains("K20W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D7K20W1_191011_NextSeq`, 1, 1) == "N" | str_sub(`D7K20W2_191011_NextSeq`, 1, 1) == "N" | str_sub(`D6K20W1_191011_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K20w_events <- K20w$EVENT
+
+K40w <- inc %>% select(c("EVENT", contains("K40W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D7K40W2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K40W3_191011_NextSeq`, 1, 1) == "N" | str_sub(`D7K40W4_191011_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K40w_events <- K40w$EVENT
+
+K60w <- inc %>% select(c("EVENT", contains("K60W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D7K60W2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K60W3_190919_NextSeq`, 1, 1) == "N" | str_sub(`D7K60W4_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+K60w_events <- K60w$EVENT
+
+L20d <- inc %>% select(c("EVENT", contains("L20d"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L20d1_190919_NextSeq`, 1, 1) == "N" | str_sub(`D6L20d2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D6L20d3_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L20d_events <- L20d$EVENT
+
+L40d <- inc %>% select(c("EVENT", contains("L40d"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L40d1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L40d2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L40d3_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L40d_events <- L40d$EVENT
+
+L60d <- inc %>% select(c("EVENT", contains("L60d"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L60d1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L60d2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L60d3_190903_NextSeq_R1`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L60d_events <- L60d$EVENT
+
+L20w <- inc %>% select(c("EVENT", contains("L20W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L20W1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L20W2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L20W3_190903_NextSeq_R1`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L20w_events <- L20w$EVENT
+
+L40w <- inc %>% select(c("EVENT", contains("L40W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L40W1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L40W2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L40W3_190903_NextSeq_R1`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L40w_events <- L40w$EVENT
+
+L60w <- inc %>% select(c("EVENT", contains("L60W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6L60W1_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L60W2_190903_NextSeq_R1`, 1, 1) == "N" | str_sub(`D6L60W3_190903_NextSeq_R1`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+L60w_events <- L60w$EVENT
+
+Krw <- inc %>% select(c("EVENT", contains("Krw"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6Krw1_191011_NextSeq`, 1, 1) == "N" | str_sub(`D6Krw3_191011_NextSeq`, 1, 1) == "N" | str_sub(`D7Krw2_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+Krw_events <- Krw$EVENT
+
+Lrw <- inc %>% select(c("EVENT", contains("Lrw"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D6Lrw1_190919_NextSeq`, 1, 1) == "N" | str_sub(`D6Lrw2_190919_NextSeq`, 1, 1) == "N" | str_sub(`D6Lrw3_190919_NextSeq`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  filter(AS_percent >= 25)
+Lrw_events <- Lrw$EVENT
+```
+
+```{r}
+EventID <- as.data.frame(unique(c(K20d_events, K40d_events, K60d_events, K20w_events, K40w_events, K60w_events, Krw_events, L20d_events, L40d_events, L60d_events, L20w_events, L40w_events, L60w_events, Lrw_events)))
+colnames(EventID) <- "EventID"
+AS_event_genes <- merge(EventID, vastdb, by = "EventID", all.x = T)
+AS_genes <- as.data.frame(unique(AS_event_genes$GeneID))
+colnames(AS_genes) <- "GeneID"
+vastdb_events_in_AS_genes <- merge(AS_genes, vastdb_events, by = "GeneID", all.x = T)
+vastdb_events_in_no_AS_genes <- vastdb_events %>% filter(!(GeneID %in% vastdb_events_in_AS_genes$GeneID))
+
+var.test(vastdb_events_in_AS_genes$num_events, vastdb_events_in_no_AS_genes$num_events) 
+#variances unequla --> Welch test
+t.test(vastdb_events_in_AS_genes$num_events, vastdb_events_in_no_AS_genes$num_events, var.equal = FALSE, alternative = "greater")
+
+#make a nice graph
+vastdb_events_in_AS_genes$is_as <- c("AS (n = 16918)")
+vastdb_events_in_no_AS_genes$is_as <- c("no AS (n = 4882)")
+barplot1 <- rbind(vastdb_events_in_AS_genes, vastdb_events_in_no_AS_genes)
+barplot1 <- barplot1 %>% group_by(is_as) %>% 
+  summarize(mean = mean(num_events, na.rm = T), sd = sd(num_events, na.rm = T))
+ggplot(barplot1, aes(x = is_as, y = mean))+
+  geom_bar(stat = "identity", position = position_dodge(), fill = "cadetblue2")+
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = .2, position = position_dodge(0.9))+
+  labs(x = "",
+       y = "Average number of splicing events per gene (VastDB)")
+#or is a boxplot better?
+#noooo no it is very not
+#boxplot1 <- rbind(vastdb_events_in_AS_genes, vastdb_events_in_no_AS_genes)
+#ggplot(boxplot1, aes(x = is_as, y = num_events))+
+  geom_boxplot(colour = "cadetblue1", varwidth = F)+
+  geom_dotplot(binaxis='y', stackdir='center', dotsize = 2, position = position_dodge(0.75), 
+               fill = "white", colour = "cadetblue1", method = "histodot", binwidth = 0.2)+
+  labs(x = "",
+       y = "Average number of splicing events per gene (VastDB)")
+```
+
+yup, so the genes with AS detected also tended to have more isoforms/splice variants in the vastdb
+but do they have more isoforms per exon?
+```{r}
+vastdb_events_in_AS_genes <- merge(vastdb_events_in_AS_genes, gtf, by = "GeneID", all.x = T)
+vastdb_events_in_AS_genes$events_per_exon <- vastdb_events_in_AS_genes$num_events / (vastdb_events_in_AS_genes$mean_exons * 4)
+
+vastdb_events_in_no_AS_genes <- merge(vastdb_events_in_no_AS_genes, gtf, by = "GeneID", all.x = T)
+vastdb_events_in_no_AS_genes$events_per_exon <- vastdb_events_in_no_AS_genes$num_events / (vastdb_events_in_no_AS_genes$mean_exons * 4)
+#multiplying by 4, cause in theory each exon can give rise to 4ish AS events. super conservative, but just wanna see
+
+var.test(vastdb_events_in_AS_genes$events_per_exon, vastdb_events_in_no_AS_genes$events_per_exon)
+#still very different variances
+t.test(vastdb_events_in_AS_genes$events_per_exon, vastdb_events_in_no_AS_genes$events_per_exon, var.equal = FALSE, alternative = "greater")
+#yup, so genes where AS is detected have a  much higher level of AS events in the vastdb per exon than those with no AS detected. lends support to the idea of de novo alignments to look at AS
+
+#Plot this too
+barplot2 <- rbind(vastdb_events_in_AS_genes, vastdb_events_in_no_AS_genes)
+barplot2 <- barplot2 %>% group_by(is_as) %>% 
+  summarize(mean = mean(events_per_exon, na.rm = T), sd = sd(events_per_exon, na.rm = T))
+ggplot(barplot2, aes(x = is_as, y = mean))+
+  geom_bar(stat = "identity", position = position_dodge(), fill = "cadetblue2")+
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = .2, position = position_dodge(0.9))+
+  labs(x = "",
+       y = "Splicing events normalized to exon number times 4")
+
+```
+
+```{r}
+#let's try a multiple logistic regression: when exon number is in the model, is number of events still a significant predictor of AS?
+regression1 <- rbind(vastdb_events_in_AS_genes, vastdb_events_in_no_AS_genes)
+regression1$is_as <- factor(regression1$is_as)
+model.1 <- glm(is_as ~ num_events + mean_exons, family = "binomial", data = regression1)
+summary(model.1)
+
+#well this is mildly shocking. less events means more likely no AS, but more exons means more likely no AS?? guess that correlation wasn't as strong as it looked. just gonna graph it to be sure
+barplot3 <- rbind(vastdb_events_in_AS_genes, vastdb_events_in_no_AS_genes)
+barplot3 <- barplot3 %>% group_by(is_as) %>% 
+  summarize(mean = mean(mean_exons, na.rm = T), sd = sd(mean_exons, na.rm = T))
+ggplot(barplot3, aes(x = is_as, y = mean))+
+  geom_bar(stat = "identity", position = position_dodge(), fill = "cadetblue2")+
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = .2, position = position_dodge(0.9))+
+  labs(x = "",
+       y = "Average number of exons per gene (Araport 11)")
+#until i can figure out wtf is going on here, I'm leaving it out...
+```
+
