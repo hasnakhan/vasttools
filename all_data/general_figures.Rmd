@@ -3,7 +3,7 @@ title: "general figures"
 output: html_document
 ---
 
-these figures can be found in vasttools/all_data/dPSI25_no_merging_all_reps/splicing graphs.pptx. As explains there, this script defines AS as an event occuring 25% of the time or more (so 25% IR or alt-SS usage, or 75% or less exon inclusion). As of Oct 26/21, we're switching to defining AS as 10% <= PSI <= 90% (from Martin et al 2021) for all vast-tools derived data (and probably all other algorithms going forward). This script has not been changed to reflect this yet. If we decide to use any of these figures in the future, we need to alter this script accordingly and re-run certain analyses (looking at you, GO enrichment). 
+these figures can be found in vasttools/all_data/dPSI25_no_merging_all_reps/splicing graphs.pptx. As explains there, this script defines AS as an event occuring 25% of the time or more (so 25% IR or alt-SS usage, or 75% or less exon inclusion).
 
 
 ```{r}
