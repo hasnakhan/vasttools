@@ -3,7 +3,7 @@ title: "exons, isoforms and AS event detection"
 output: html_document
 ---
 
-this is idea number 5 in the figure wishlist. The idea here is to probe the notion that AS event detection can be increased using a de novo assembly method. To get at this, we're going to find out if the genes with detected AS events (defined in Cmero et al 2021 as 10 <= PSI <= 90) have a higher than expected number of isoforms in the database. To do this, we need to:
+this is idea number 5 in the figure wishlist. The idea here is to probe the notion that AS event detection can be increased using a de novo assembly method. To get at this, we're going to find out if the genes with detected AS events have a higher than expected number of isoforms in the database. To do this, we need to:
 ```{r}
 library(tidyverse)
 ```
@@ -13,16 +13,18 @@ library(tidyverse)
 ```{r}
 gtf <- read_delim("C:/Users/hasna/Documents/MSc_project/kallisto/kallisto/Arabidopsis_thaliana.TAIR10.51.gtf", delim = "\t", col_names = F)
 gtf <- gtf %>% filter(X3 == "exon")
-gtf$GeneID <- str_split(gtf$X9, ";", simplify = T)[,1]
-gtf$transcript <- str_split(gtf$X9, ";", simplify = T)[,2]
-gtf$GeneID <- str_sub(gtf$GeneID, 10, 18)
-gtf$transcript <- str_sub(gtf$transcript, 17, 27)
+gtf$GeneID <- str_sub(gtf$X9, 10, 18)
+gtf$transcript <- str_sub(gtf$X9, 37, 47)
 gtf <- gtf %>% group_by(GeneID, transcript) %>% 
   summarize ("num_exons" = n()) %>%
   group_by(GeneID) %>% 
-  summarize("mean_exons" = mean(num_exons)) %>% 
+  summarize("mean_exons" = mean(num_exons))%>% 
   filter(mean_exons > 1)
 #gtf now contains multi-exonic genes and the mean number of exons in each
+#32833 genes in total
+#23037 multiexonic
+#9796 single exon
+#buuuut there are only 21 800 genes in the VastDB...
 ```
 
 3. count the nunber of isoforms of gene are present in the database in question. For now, these are vastDB and AtRTD2.
@@ -219,7 +221,7 @@ vastdb_events_in_AS_genes <- merge(AS_genes, vastdb_events, by = "GeneID", all.x
 vastdb_events_in_no_AS_genes <- vastdb_events %>% filter(!(GeneID %in% vastdb_events_in_AS_genes$GeneID))
 
 var.test(vastdb_events_in_AS_genes$num_events, vastdb_events_in_no_AS_genes$num_events) 
-#variances unequla --> Welch test
+#variances unequal --> Welch test
 t.test(vastdb_events_in_AS_genes$num_events, vastdb_events_in_no_AS_genes$num_events, var.equal = FALSE, alternative = "greater")
 
 #make a nice graph
@@ -289,4 +291,5 @@ ggplot(barplot3, aes(x = is_as, y = mean))+
        y = "Average number of exons per gene (Araport 11)")
 #until i can figure out wtf is going on here, I'm leaving it out...
 ```
+
 
