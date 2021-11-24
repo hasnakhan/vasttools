@@ -5,6 +5,8 @@ output: html_document
 
 these figures can be found in vasttools/all_data/dPSI25_no_merging_all_reps/splicing graphs.pptx. As explains there, this script defines AS as an event occuring 25% of the time or more (so 25% IR or alt-SS usage, or 75% or less exon inclusion).
 
+***update, this script is screwed iup big time. anything here should be re-reun in general_figures2.Rmd. also, much of the data in vasttools/all_data/dPSI25_no_merging_all_reps is now suspect, and should be treated as such. on the other hand, it's nice to know why K20d has so many less AS events: cause that's the only one that was quality filtered!
+
 
 ```{r}
 library(tidyverse)

@@ -18,6 +18,6 @@ inc2[, c(1:6)] <- NULL
 
 all_inc <- cbind(inc1, inc2)
 
-write.table(all_inc, file = "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/complete_inclusion_table.tab", row.names = F, na = "", quote = F, sep = "\t")
+#write.table(all_inc, file = "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/complete_inclusion_table.tab", row.names = F, na = "", quote = F, sep = "\t")
 ```
 
