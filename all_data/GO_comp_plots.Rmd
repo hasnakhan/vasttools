@@ -88,6 +88,7 @@ dev.off()
 2. plot by genotype
 ```{r}
 #in this arm, 4 groups have some significant GO enrichment
+#edit: several months later... the agrigo output counts the genes associated with each go term already, use that!!
 L20d <- read_delim( "C:/Users/hasna/Documents/MSc_project/vasttools/all_data/dPSI25_no_merging_all_reps/K20d-L20d_327events/leaf_up_GO.txt", delim = "\t")
 
 L20d <- L20d %>% filter(FDR <= 0.05) %>% select(c("Term", "term_type", "entries", "FDR")) %>% 
