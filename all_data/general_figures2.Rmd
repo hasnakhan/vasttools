@@ -9,6 +9,8 @@ see the comments in general_figures.Rmd for why we even need this. but long stor
 library(tidyverse)
 library(ggVennDiagram)
 library(ggstance)
+library(gghighlight)
+library(ggrepel)
 ```
 
 ```{r}
@@ -313,5 +315,63 @@ ggplot(allcomps, aes(x = name, y = count, fill = Event_type))+
   geom_bar(stat = "identity")+
   scale_fill_manual(values = colours)+
   theme_minimal()
+```
+
+May 2022: volcano plot. need to read in the inclusion table, filter for appropriate read depth, average the PSIs, then calculate dPSI for the K20dK20w comparison. This is close to recapitulating vast compare, except we don't require a range difference of 5 PSI between the 2 groups. It will be interesting to see what the effect of this cutoff, and of requiring support from majiq, are on the datapoints we chose out of all the valid vast events (this will be the difference between points with |dPSI| > 25, but that we're selected. Do these have lower p-values as well?)
+
+
+```{r}
+orig_inc <- inc <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/all_data/complete_inclusion_table.tab", delim = "\t") 
+
+K20d <- inc %>% select(c("EVENT", contains("K20d"))) %>% 
+  mutate("pass" = ifelse(
+  str_sub(`D6K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D6K20d3_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20d5_191011_NextSeq-Q`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent_K20d" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  select(EVENT, AS_percent_K20d) 
+
+K20w <- inc %>% select(c("EVENT", contains("K20W"))) %>% 
+  mutate("pass" = ifelse(
+str_sub(`D7K20W1_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D7K20W2_191011_NextSeq-Q`, 1, 1) == "N" | str_sub(`D6K20W1_191011_NextSeq-Q`, 1, 1) == "N", "no", "yes")) %>% 
+  filter(pass == "yes") %>% 
+  mutate("mean" = rowMeans(.[, unlist(lapply(., is.numeric))])) %>% 
+  mutate("AS_percent_K20w" = ifelse(
+  grepl("AthEX.*", EVENT), 100 - mean, mean
+  )) %>% 
+  select(EVENT, AS_percent_K20w)
+
+K20dK20w <- inner_join(K20d, K20w, by = "EVENT") %>% 
+  mutate(dPSI = AS_percent_K20d - AS_percent_K20w)
+test <- filter(K20dK20w, dPSI < -25) #more events that we'd expect since the 5 PSI range filter is not in effect. all we're looking for is valid splicing events (not dAS)
+
+#add gene names
+db <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/vast-tools/Ath/FILES/Ath.Event-Gene.IDs.txt", delim = "\t")
+colnames(db) <- c("EVENT", "GeneID") #gotta get the colnames to match across DFs
+K20dK20w <- merge(K20dK20w, db, by = "EVENT", all.x = T)
+```
+
+join K20dK20w (contains dPSI) to diff (contains MV[dPsi]_at_0.95). we can also interpret this as the lower bound of the 90% CI of dPSI. get the dAS events we identified in K20dK20w
+```{r}
+diff <- read_delim("C:/Users/hasna/Documents/MSc_project/vasttools/vast-tools/vast_out/diff_out_feb2022/diff_out95.tab", delim = "\t")
+K20dK20w <- inner_join(K20dK20w, diff, by = "EVENT")
+
+vm_K20dK20w <- read_delim("C:/Users/hasna/Documents/MSc_project/majiq/dAS_analysis/clustering/dAS_DEG/all_events.tsv", delim = "\t") %>% 
+  filter(comp == "K20dK20w", set == "dAS", event != "AthINT0088627")
+#get rid of the second event in AT5G49940 that majiq didn't detect
+
+to_label <- filter(K20dK20w, EVENT %in% vm_K20dK20w$event)
+```
+
+volcano plot!
+```{r}
+ggplot(K20dK20w, aes(x = dPSI, y = `MV[dPsi]_at_0.95`, label = GeneID))+
+  geom_point(colour = "red")+
+  gghighlight(EVENT %in% vm_K20dK20w$event, unhighlighted_params = list(colour = "grey"))+
+  geom_vline(xintercept = 25, linetype = 2)+
+  geom_vline(xintercept = -25, linetype = 2)+
+  geom_text_repel(data = to_label, aes(label = GeneID), size = 2.5)
 ```
 
